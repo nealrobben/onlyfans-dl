@@ -17,6 +17,8 @@ import requests
 import time
 import datetime as dt
 import hashlib
+import pandas as pd
+from datetime import datetime
 
 # maximum number of posts to index
 # DONT CHANGE THAT
@@ -44,6 +46,7 @@ PROFILE_ID = ""
 def assure_dir(path):
     if not os.path.isdir(path):
         os.mkdir(path)
+
 
 # Create Auth with Json
 def create_auth():
@@ -73,7 +76,8 @@ def create_signed_headers(link, queryParams):
     hash_object = hashlib.sha1(message)
     sha_1_sign = hash_object.hexdigest()
     sha_1_b = sha_1_sign.encode("ascii")
-    checksum = sum([sha_1_b[number] for number in dynamic_rules["checksum_indexes"]]) + dynamic_rules["checksum_constant"]
+    checksum = sum([sha_1_b[number] for number in dynamic_rules["checksum_indexes"]]) + dynamic_rules[
+        "checksum_constant"]
     API_HEADER["sign"] = dynamic_rules["format"].format(sha_1_sign, abs(checksum))
     API_HEADER["time"] = unixtime
     return
@@ -147,6 +151,7 @@ def get_user_info(profile):
         exit()
     return info
 
+
 # to get subscribesCount for displaying all subs
 # info about yourself
 def user_me():
@@ -156,6 +161,7 @@ def user_me():
         # bail, we need info for both profiles to be correct
         exit()
     return me
+
 
 # get all subscriptions in json
 def get_subs():
@@ -172,15 +178,16 @@ def get_subs():
 # download public files like avatar and header
 new_files = 0
 
+
 def select_sub():
     # Get Subscriptions
     SUBS = get_subs()
     sub_dict.update({"0": "*** Download All Models ***"})
     ALL_LIST = []
-    for i in range(1, len(SUBS)+1):
-                ALL_LIST.append(i)
+    for i in range(1, len(SUBS) + 1):
+        ALL_LIST.append(i)
     for i in range(0, len(SUBS)):
-        sub_dict.update({i+1: SUBS[i]["username"]})
+        sub_dict.update({i + 1: SUBS[i]["username"]})
     if len(sub_dict) == 1:
         print('No models subbed')
         exit()
@@ -188,11 +195,13 @@ def select_sub():
     # Select Model
     if ARG1 == "all":
         return ALL_LIST
-    MODELS = str((input('\n'.join('{} | {}'.format(key, value) for key, value in sub_dict.items()) + "\nEnter number to download model\n")))
+    MODELS = str((input('\n'.join(
+        '{} | {}'.format(key, value) for key, value in sub_dict.items()) + "\nEnter number to download model\n")))
     if MODELS == "0":
         return ALL_LIST
     else:
         return [x.strip() for x in MODELS.split(',')]
+
 
 def download_public_files():
     public_files = ["avatar", "header"]
@@ -210,10 +219,31 @@ def download_public_files():
             new_files += 1
 
 
+def get_source_name(source):
+    resultSlash = [i for i, letter in enumerate(source) if letter == "/"]
+    lastIndexSlash = resultSlash[6]
+
+    resultQuestion = [i for i, letter in enumerate(source) if letter == "?"]
+    firstIndexQuestion = resultQuestion[0]
+
+    source = source[lastIndexSlash + 1:firstIndexQuestion - 4]
+
+    return source
+
+
 # download a media item and save it to the relevant directory
-def download_media(media, is_archived):
-    id = str(media["id"])
+def download_media(media, is_archived, post):
+    # id = str(media["id"])
     source = media["source"]["source"]
+    id = str(get_source_name(source))
+    postedAt = str(post["postedAt"])
+
+    #postAt contains data in format "2023-02-20T14:09:53+00:00", strip off last 6 characters (+00:00)
+    postedAtTrimmed = postedAt[:-6]
+    #postedAtDate = pd.to_datetime(postedAt, infer_datetime_format=True)
+
+    # Contains literal T because that is in the string and watch order -> year-month-day
+    postedAtDate = datetime.strptime(postedAtTrimmed, "%Y-%m-%dT%H:%M:%S")
 
     if (media["type"] != "photo" and media["type"] != "video" and media["type"] != "gif") or not media['canView']:
         return
@@ -230,7 +260,6 @@ def download_media(media, is_archived):
     else:
         type = media["type"]
 
-
     if is_archived:
         path = "/archived/"
     else:
@@ -242,6 +271,7 @@ def download_media(media, is_archived):
         global new_files
         new_files += 1
         download_file(source, path)
+        set_last_modified_date(path, postedAtDate)
 
 
 # helper to generally download files
@@ -250,6 +280,12 @@ def download_file(source, path):
     with open("profiles/" + PROFILE + path, 'wb') as f:
         r.raw.decode_content = True
         shutil.copyfileobj(r.raw, f)
+
+
+def set_last_modified_date(path, modifiedDate):
+    modifiedDate_epoch = modifiedDate.timestamp()
+    full_path = "profiles/" + PROFILE + path
+    os.utime(full_path, (modifiedDate_epoch, modifiedDate_epoch))
 
 
 def get_id_from_path(path):
@@ -278,7 +314,7 @@ def download_posts(cur_count, posts, is_archived):
 
         for media in post["media"]:
             if 'source' in media:
-                download_media(media, is_archived)
+                download_media(media, is_archived, post)
 
         # adding some nice info in here for download stats
         timestats = calc_process_time(starttime, k, total_count)
@@ -311,6 +347,7 @@ def get_all_videos(videos):
 
     return videos
 
+
 def get_all_photos(images):
     len_imgs = len(images)
     has_more_images = False
@@ -321,9 +358,9 @@ def get_all_photos(images):
         has_more_images = False
         len_imgs = len(images)
         extra_img_posts = api_request("/users/" + PROFILE_ID + "/posts/photos",
-                                        getdata={"limit": str(POST_LIMIT), "order": "publish_date_desc",
-                                                 "beforePublishTime": images[len_imgs - 1]["postedAtPrecise"]}
-                                        )
+                                      getdata={"limit": str(POST_LIMIT), "order": "publish_date_desc",
+                                               "beforePublishTime": images[len_imgs - 1]["postedAtPrecise"]}
+                                      )
         images.extend(extra_img_posts)
         if len(extra_img_posts) == 50:
             has_more_images = True
