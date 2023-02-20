@@ -219,6 +219,7 @@ def download_public_files():
             new_files += 1
 
 
+#A helper function to get the name to use from the source file (ex: 3840x2561_63e2200f2513231eeaec8dd21a284423.jpg instead of the id)
 def get_source_name(source):
     resultSlash = [i for i, letter in enumerate(source) if letter == "/"]
     lastIndexSlash = resultSlash[6]
@@ -240,7 +241,6 @@ def download_media(media, is_archived, post):
 
     #postAt contains data in format "2023-02-20T14:09:53+00:00", strip off last 6 characters (+00:00)
     postedAtTrimmed = postedAt[:-6]
-    #postedAtDate = pd.to_datetime(postedAt, infer_datetime_format=True)
 
     # Contains literal T because that is in the string and watch order -> year-month-day
     postedAtDate = datetime.strptime(postedAtTrimmed, "%Y-%m-%dT%H:%M:%S")
