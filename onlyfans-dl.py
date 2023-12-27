@@ -70,14 +70,21 @@ def create_signed_headers(link, queryParams):
     if (queryParams):
         query = '&'.join('='.join((key, val)) for (key, val) in queryParams.items())
         path = f"{path}?{query}"
-    unixtime = str(int(dt.datetime.now().timestamp()))
+
+    #unixtime = str(int(dt.datetime.now().timestamp()))
+    unixtime = '1678565782'
+
     msg = "\n".join([dynamic_rules["static_param"], unixtime, path, API_HEADER["user-id"]])
     message = msg.encode("utf-8")
+
     hash_object = hashlib.sha1(message)
+
     sha_1_sign = hash_object.hexdigest()
     sha_1_b = sha_1_sign.encode("ascii")
-    checksum = sum([sha_1_b[number] for number in dynamic_rules["checksum_indexes"]]) + dynamic_rules[
-        "checksum_constant"]
+
+    firstsum = sum([sha_1_b[number] for number in dynamic_rules["checksum_indexes"]])
+    checksum = firstsum + dynamic_rules["checksum_constant"]
+
     API_HEADER["sign"] = dynamic_rules["format"].format(sha_1_sign, abs(checksum))
     API_HEADER["time"] = unixtime
     return
@@ -221,15 +228,18 @@ def download_public_files():
 
 #A helper function to get the name to use from the source file (ex: 3840x2561_63e2200f2513231eeaec8dd21a284423.jpg instead of the id)
 def get_source_name(source):
-    resultSlash = [i for i, letter in enumerate(source) if letter == "/"]
-    lastIndexSlash = resultSlash[6]
+    try:
+        resultSlash = [i for i, letter in enumerate(source) if letter == "/"]
+        lastIndexSlash = resultSlash[6]
 
-    resultQuestion = [i for i, letter in enumerate(source) if letter == "?"]
-    firstIndexQuestion = resultQuestion[0]
+        resultQuestion = [i for i, letter in enumerate(source) if letter == "?"]
+        firstIndexQuestion = resultQuestion[0]
 
-    source = source[lastIndexSlash + 1:firstIndexQuestion - 4]
+        source = source[lastIndexSlash + 1:firstIndexQuestion - 4]
 
-    return source
+        return source
+    except Exception:
+        print('Error in get_source_name')
 
 
 # download a media item and save it to the relevant directory
